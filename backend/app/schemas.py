@@ -5,6 +5,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserBase(BaseModel):
     username: str = Field(min_length=3, max_length=50)
+    full_name: str | None = Field(default=None, max_length=120)
     email: EmailStr
 
 
@@ -24,6 +25,7 @@ class UserRead(UserBase):
 class UserSummary(BaseModel):
     id: int
     username: str
+    full_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -32,6 +34,7 @@ class UserSummary(BaseModel):
 class GroupMemberRead(BaseModel):
     user_id: int
     username: str
+    full_name: str | None = None
     role: str
     is_banned: bool
     joined_at: datetime
@@ -71,8 +74,33 @@ class MessageRead(BaseModel):
     group_id: int
     user_id: int
     sender_username: str
+    sender_name: str
     content: str
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class DirectMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class DirectMessageRead(BaseModel):
+    id: int
+    thread_id: int
+    user_id: int
+    sender_username: str
+    sender_name: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = Field(default=None, max_length=120)
+    username: str | None = Field(default=None, min_length=3, max_length=50)
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=6, max_length=128)

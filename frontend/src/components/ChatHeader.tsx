@@ -1,13 +1,19 @@
-import { ArrowLeftIcon, InformationCircleIcon, UsersIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowLeftIcon,
+  InformationCircleIcon,
+  UserCircleIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline'
 
 type ChatHeaderProps = {
   title: string
   subtitle: string
   onBack?: () => void
   onInfo?: () => void
+  onProfile?: () => void
 }
 
-function ChatHeader({ title, subtitle, onBack, onInfo }: ChatHeaderProps) {
+function ChatHeader({ title, subtitle, onBack, onInfo, onProfile }: ChatHeaderProps) {
   return (
     <div className="border-b border-blue-300 bg-gradient-to-r from-blue-950 via-blue-900 to-blue-700 px-5 py-4 text-white">
       <div className="flex items-center justify-between gap-4">
@@ -30,16 +36,28 @@ function ChatHeader({ title, subtitle, onBack, onInfo }: ChatHeaderProps) {
             <p className="truncate text-xs text-blue-100/90">{subtitle}</p>
           </div>
         </div>
-        {onInfo ? (
-          <button
-            type="button"
-            onClick={onInfo}
-            aria-label="Info"
-            className="rounded-full p-1 text-blue-100 transition hover:bg-white/10 lg:hidden"
-          >
-            <InformationCircleIcon className="h-5 w-5" />
-          </button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {onProfile ? (
+            <button
+              type="button"
+              onClick={onProfile}
+              aria-label="Profile"
+              className="rounded-full p-1 text-blue-100 transition hover:bg-white/10"
+            >
+              <UserCircleIcon className="h-5 w-5" />
+            </button>
+          ) : null}
+          {onInfo ? (
+            <button
+              type="button"
+              onClick={onInfo}
+              aria-label="Info"
+              className="rounded-full p-1 text-blue-100 transition hover:bg-white/10 lg:hidden"
+            >
+              <InformationCircleIcon className="h-5 w-5" />
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

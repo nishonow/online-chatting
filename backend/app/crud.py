@@ -1,3 +1,4 @@
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from . import auth, models, schemas
@@ -11,10 +12,15 @@ def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
 
 
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = auth.hash_password(user.password)
     db_user = models.User(
         username=user.username,
+        full_name=user.full_name,
         email=user.email,
         password_hash=hashed_password,
     )
@@ -32,6 +38,7 @@ def create_admin_user(db: Session, username: str, email: str, password: str):
     hashed_password = auth.hash_password(password)
     admin_user = models.User(
         username=username,
+        full_name=username,
         email=email,
         password_hash=hashed_password,
         is_admin=True,
@@ -180,6 +187,21 @@ def add_message(db: Session, group_id: int, user_id: int, message: schemas.Messa
     return db_message
 
 
+def update_user(db: Session, user: models.User, data: schemas.UserUpdate):
+    if "full_name" in data.__fields_set__:
+        user.full_name = data.full_name
+    if "username" in data.__fields_set__ and data.username is not None:
+        user.username = data.username
+    if "email" in data.__fields_set__ and data.email is not None:
+        user.email = data.email
+    if "password" in data.__fields_set__ and data.password is not None:
+        user.password_hash = auth.hash_password(data.password)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def update_group(db: Session, group_id: int, name: str, description: str | None):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
@@ -209,3 +231,78 @@ def list_messages(db: Session, group_id: int):
         .order_by(models.Message.created_at.asc())
         .all()
     )
+
+
+def get_direct_thread(db: Session, user_a_id: int, user_b_id: int):
+    user_low, user_high = sorted([user_a_id, user_b_id])
+    return (
+        db.query(models.DirectThread)
+        .filter(
+            models.DirectThread.user_a_id == user_low,
+            models.DirectThread.user_b_id == user_high,
+        )
+        .first()
+    )
+
+
+def get_or_create_direct_thread(db: Session, user_a_id: int, user_b_id: int):
+    thread = get_direct_thread(db, user_a_id, user_b_id)
+    if thread:
+        return thread
+
+    user_low, user_high = sorted([user_a_id, user_b_id])
+    thread = models.DirectThread(user_a_id=user_low, user_b_id=user_high)
+    db.add(thread)
+    db.commit()
+    db.refresh(thread)
+    return thread
+
+
+def list_direct_messages(db: Session, thread_id: int):
+    return (
+        db.query(models.DirectMessage)
+        .filter(models.DirectMessage.thread_id == thread_id)
+        .order_by(models.DirectMessage.created_at.asc())
+        .all()
+    )
+
+
+def add_direct_message(
+    db: Session,
+    thread_id: int,
+    user_id: int,
+    message: schemas.DirectMessageCreate,
+):
+    db_message = models.DirectMessage(
+        thread_id=thread_id,
+        user_id=user_id,
+        content=message.content,
+    )
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
+
+
+def list_dm_users(db: Session, user_id: int):
+    threads = (
+        db.query(models.DirectThread)
+        .join(models.DirectMessage)
+        .filter(
+            or_(
+                models.DirectThread.user_a_id == user_id,
+                models.DirectThread.user_b_id == user_id,
+            )
+        )
+        .all()
+    )
+
+    user_ids = set()
+    for thread in threads:
+        other_id = thread.user_b_id if thread.user_a_id == user_id else thread.user_a_id
+        user_ids.add(other_id)
+
+    if not user_ids:
+        return []
+
+    return db.query(models.User).filter(models.User.id.in_(user_ids)).all()

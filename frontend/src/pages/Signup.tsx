@@ -5,6 +5,7 @@ import { signup } from '../utils/api'
 function Signup() {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -16,7 +17,7 @@ function Signup() {
     setIsLoading(true)
 
     try {
-      await signup({ username, email, password })
+      await signup({ username, full_name: fullName || undefined, email, password })
       navigate('/login')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed')
@@ -39,6 +40,16 @@ function Signup() {
                 placeholder="yourname"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
+                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-slate-600">Full name</label>
+              <input
+                type="text"
+                placeholder="Your name"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
                 className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>

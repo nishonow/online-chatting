@@ -2,6 +2,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export type SignupPayload = {
   username: string
+  full_name?: string
   email: string
   password: string
 }
@@ -14,19 +15,37 @@ export type LoginPayload = {
 export type User = {
   id: number
   username: string
+  full_name: string | null
   email: string
   is_admin: boolean
   created_at: string
 }
 
+export type DirectUser = {
+  id: number
+  username: string
+  full_name: string | null
+}
+
 export type UserSummary = {
   user_id: number
   username: string
+  full_name: string | null
   role: string
   is_banned: boolean
   joined_at: string
 }
 
+
+export type DirectMessage = {
+  id: number
+  thread_id: number
+  user_id: number
+  sender_username: string
+  sender_name: string
+  content: string
+  created_at: string
+}
 export type Group = {
   id: number
   name: string
@@ -41,6 +60,7 @@ export type Message = {
   group_id: number
   user_id: number
   sender_username: string
+  sender_name: string
   content: string
   created_at: string
 }
@@ -55,8 +75,8 @@ export async function signup(payload: SignupPayload) {
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Signup failed')
+    const message = await readErrorMessage(response, 'Signup failed')
+    throw new Error(message)
   }
 
   return response.json()
@@ -76,8 +96,8 @@ export async function login(payload: LoginPayload) {
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Login failed')
+    const message = await readErrorMessage(response, 'Login failed')
+    throw new Error(message)
   }
 
   return response.json()
@@ -89,13 +109,49 @@ function authHeaders(token: string) {
   }
 }
 
+async function readErrorMessage(response: Response, fallback: string) {
+  const text = await response.text()
+  if (!text) {
+    return fallback
+  }
+
+  try {
+    const parsed = JSON.parse(text)
+    if (parsed?.detail) {
+      if (typeof parsed.detail === 'string') {
+        return parsed.detail
+      }
+      if (Array.isArray(parsed.detail)) {
+        const messages = parsed.detail
+          .map((item) => (typeof item?.msg === 'string' ? item.msg : null))
+          .filter(Boolean)
+        if (messages.length > 0) {
+          return messages.join('; ')
+        }
+      }
+      return JSON.stringify(parsed.detail)
+    }
+    if (parsed?.message) {
+      if (typeof parsed.message === 'string') {
+        return parsed.message
+      }
+      return JSON.stringify(parsed.message)
+    }
+  } catch {
+    // Ignore parsing errors and return raw text.
+  }
+
+  return text
+}
+
 export async function getMe(token: string): Promise<User> {
   const response = await fetch(`${API_URL}/users/me`, {
     headers: authHeaders(token),
   })
 
   if (!response.ok) {
-    throw new Error('Unauthorized')
+    const message = await readErrorMessage(response, 'Unauthorized')
+    throw new Error(message)
   }
 
   return response.json()
@@ -107,7 +163,8 @@ export async function listGroups(token: string): Promise<Group[]> {
   })
 
   if (!response.ok) {
-    throw new Error('Failed to load groups')
+    const message = await readErrorMessage(response, 'Failed to load groups')
+    throw new Error(message)
   }
 
   return response.json()
@@ -124,8 +181,8 @@ export async function createGroup(token: string, payload: { name: string; descri
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to create group')
+    const message = await readErrorMessage(response, 'Failed to create group')
+    throw new Error(message)
   }
 
   return response.json()
@@ -146,8 +203,8 @@ export async function updateGroup(
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to update group')
+    const message = await readErrorMessage(response, 'Failed to update group')
+    throw new Error(message)
   }
 
   return response.json()
@@ -160,8 +217,8 @@ export async function deleteGroup(token: string, groupId: number) {
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to delete group')
+    const message = await readErrorMessage(response, 'Failed to delete group')
+    throw new Error(message)
   }
 
   return response.json()
@@ -173,13 +230,8 @@ export async function listMessages(token: string, groupId: number): Promise<Mess
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    try {
-      const parsed = JSON.parse(message)
-      throw new Error(parsed.detail || 'Failed to load messages')
-    } catch {
-      throw new Error(message || 'Failed to load messages')
-    }
+    const message = await readErrorMessage(response, 'Failed to load messages')
+    throw new Error(message)
   }
 
   return response.json()
@@ -200,8 +252,8 @@ export async function sendMessage(
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to send message')
+    const message = await readErrorMessage(response, 'Failed to send message')
+    throw new Error(message)
   }
 
   return response.json()
@@ -213,7 +265,8 @@ export async function listAllGroups(token: string): Promise<Group[]> {
   })
 
   if (!response.ok) {
-    throw new Error('Failed to load groups')
+    const message = await readErrorMessage(response, 'Failed to load groups')
+    throw new Error(message)
   }
 
   return response.json()
@@ -226,8 +279,60 @@ export async function joinGroup(token: string, groupId: number) {
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to join group')
+    const message = await readErrorMessage(response, 'Failed to join group')
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function getUserSummary(token: string, userId: number): Promise<DirectUser> {
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+    headers: authHeaders(token),
+  })
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, 'Failed to load user')
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function getUserByUsername(token: string, username: string): Promise<DirectUser> {
+  const response = await fetch(`${API_URL}/users/by-username/${username}`, {
+    headers: authHeaders(token),
+  })
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, 'Failed to load user')
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function updateMe(
+  token: string,
+  payload: {
+    full_name?: string | null
+    username?: string | null
+    email?: string | null
+    password?: string | null
+  },
+): Promise<User> {
+  const response = await fetch(`${API_URL}/users/me`, {
+    method: 'PUT',
+    headers: {
+      ...authHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, 'Failed to update profile')
+    throw new Error(message)
   }
 
   return response.json()
@@ -239,18 +344,63 @@ export async function listGroupMembers(token: string, groupId: number): Promise<
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    try {
-      const parsed = JSON.parse(message)
-      throw new Error(parsed.detail || 'Failed to load members')
-    } catch {
-      throw new Error(message || 'Failed to load members')
-    }
+    const message = await readErrorMessage(response, 'Failed to load members')
+    throw new Error(message)
   }
 
   return response.json()
 }
 
+export async function listDirectUsers(token: string): Promise<DirectUser[]> {
+  const response = await fetch(`${API_URL}/dm/users`, {
+    headers: authHeaders(token),
+  })
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, 'Failed to load direct message users')
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function listDirectMessages(
+  token: string,
+  username: string,
+): Promise<DirectMessage[]> {
+  const response = await fetch(`${API_URL}/dm/with/${username}/messages`, {
+    headers: authHeaders(token),
+  })
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, 'Failed to load messages')
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function sendDirectMessage(
+  token: string,
+  username: string,
+  content: string,
+): Promise<DirectMessage> {
+  const response = await fetch(`${API_URL}/dm/with/${username}/messages`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  })
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, 'Failed to send message')
+    throw new Error(message)
+  }
+
+  return response.json()
+}
 export async function banGroupMember(token: string, groupId: number, userId: number) {
   const response = await fetch(`${API_URL}/groups/${groupId}/members/${userId}/ban`, {
     method: 'POST',
@@ -258,8 +408,8 @@ export async function banGroupMember(token: string, groupId: number, userId: num
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to ban member')
+    const message = await readErrorMessage(response, 'Failed to ban member')
+    throw new Error(message)
   }
 
   return response.json()
@@ -272,8 +422,8 @@ export async function unbanGroupMember(token: string, groupId: number, userId: n
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Failed to unban member')
+    const message = await readErrorMessage(response, 'Failed to unban member')
+    throw new Error(message)
   }
 
   return response.json()

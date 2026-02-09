@@ -65,6 +65,28 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+class DirectConnectionManager:
+    def __init__(self) -> None:
+        self.active_connections: Dict[int, Set[WebSocket]] = {}
+
+    async def connect(self, thread_id: int, websocket: WebSocket) -> None:
+        await websocket.accept()
+        self.active_connections.setdefault(thread_id, set()).add(websocket)
+
+    def disconnect(self, thread_id: int, websocket: WebSocket) -> None:
+        if thread_id in self.active_connections:
+            self.active_connections[thread_id].discard(websocket)
+            if not self.active_connections[thread_id]:
+                del self.active_connections[thread_id]
+
+    async def broadcast(self, thread_id: int, payload: dict) -> None:
+        for websocket in list(self.active_connections.get(thread_id, set())):
+            await websocket.send_json(payload)
+
+
+dm_manager = DirectConnectionManager()
+
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
@@ -101,6 +123,48 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @app.get("/users/me", response_model=schemas.UserRead)
 def read_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@app.put("/users/me", response_model=schemas.UserRead)
+def update_me(
+    payload: schemas.UserUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if "username" in payload.__fields_set__ and payload.username:
+        existing = crud.get_user_by_username(db, payload.username)
+        if existing and existing.id != current_user.id:
+            raise HTTPException(status_code=400, detail="Username already exists")
+    if "email" in payload.__fields_set__ and payload.email:
+        existing = crud.get_user_by_email(db, payload.email)
+        if existing and existing.id != current_user.id:
+            raise HTTPException(status_code=400, detail="Email already exists")
+
+    return crud.update_user(db, current_user, payload)
+
+
+@app.get("/users/{user_id}", response_model=schemas.UserSummary)
+def read_user_summary(
+    user_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = crud.get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@app.get("/users/by-username/{username}", response_model=schemas.UserSummary)
+def read_user_by_username(
+    username: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = crud.get_user_by_username(db, username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 @app.post("/groups", response_model=schemas.GroupRead)
@@ -211,6 +275,7 @@ def create_message(
             "group_id": db_message.group_id,
             "user_id": db_message.user_id,
             "sender_username": current_user.username,
+            "sender_name": current_user.full_name or current_user.username,
             "content": db_message.content,
             "created_at": db_message.created_at.isoformat(),
         },
@@ -249,12 +314,69 @@ def list_group_members(
         schemas.GroupMemberRead(
             user_id=member.user_id,
             username=member.user.username,
+            full_name=member.user.full_name,
             role=member.role,
             is_banned=member.is_banned,
             joined_at=member.joined_at,
         )
         for member in members
     ]
+
+
+@app.get("/dm/users", response_model=list[schemas.UserSummary])
+def list_dm_users(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return crud.list_dm_users(db, current_user.id)
+
+
+@app.get("/dm/with/{username}/messages", response_model=list[schemas.DirectMessageRead])
+def list_dm_messages(
+    username: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if username == current_user.username:
+        raise HTTPException(status_code=400, detail="Cannot chat with yourself")
+    user = crud.get_user_by_username(db, username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    thread = crud.get_direct_thread(db, current_user.id, user.id)
+    if thread is None:
+        return []
+    return crud.list_direct_messages(db, thread.id)
+
+
+@app.post("/dm/with/{username}/messages", response_model=schemas.DirectMessageRead)
+def create_dm_message(
+    username: str,
+    message: schemas.DirectMessageCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if username == current_user.username:
+        raise HTTPException(status_code=400, detail="Cannot chat with yourself")
+    user = crud.get_user_by_username(db, username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    thread = crud.get_or_create_direct_thread(db, current_user.id, user.id)
+    db_message = crud.add_direct_message(db, thread.id, current_user.id, message)
+
+    payload = {
+        "type": "dm_message",
+        "data": {
+            "id": db_message.id,
+            "thread_id": db_message.thread_id,
+            "user_id": db_message.user_id,
+            "sender_username": current_user.username,
+            "sender_name": current_user.full_name or current_user.username,
+            "content": db_message.content,
+            "created_at": db_message.created_at.isoformat(),
+        },
+    }
+    from_thread.run(dm_manager.broadcast, thread.id, payload)
+    return db_message
 
 
 @app.post("/groups/{group_id}/members/{user_id}/ban")
@@ -306,5 +428,31 @@ async def group_ws(websocket: WebSocket, group_id: int, token: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(group_id, websocket)
+    finally:
+        db.close()
+
+
+@app.websocket("/ws/dm/{username}")
+async def dm_ws(websocket: WebSocket, username: str, token: str):
+    payload = auth.decode_token(token)
+    if payload is None or "sub" not in payload:
+        await websocket.close(code=1008)
+        return
+
+    db = SessionLocal()
+    try:
+        user = crud.get_user_by_username(db, payload["sub"])
+        other = crud.get_user_by_username(db, username)
+        if user is None or other is None or user.id == other.id:
+            await websocket.close(code=1008)
+            return
+
+        thread = crud.get_or_create_direct_thread(db, user.id, other.id)
+        await dm_manager.connect(thread.id, websocket)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        if "thread" in locals():
+            dm_manager.disconnect(thread.id, websocket)
     finally:
         db.close()

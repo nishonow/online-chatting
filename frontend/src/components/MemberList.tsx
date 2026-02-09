@@ -19,11 +19,13 @@ function MemberList({ members, emptyText = 'No users yet.' }: MemberListProps) {
         >
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-full bg-blue-200 text-xs font-semibold text-blue-800">
-              {member.username[0]?.toUpperCase()}
+              {(member.full_name || member.username)[0]?.toUpperCase()}
             </span>
             <div>
-              <p className="text-sm font-semibold text-slate-700">{member.username}</p>
-              <p className="text-[10px] text-slate-400">{member.role}</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {member.full_name || member.username}
+              </p>
+              <p className="text-[10px] text-slate-400">@{member.username}</p>
             </div>
           </div>
           {member.is_banned ? (
