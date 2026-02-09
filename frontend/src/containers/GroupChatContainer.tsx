@@ -276,14 +276,13 @@ function GroupChatContainer({
     : 'lg:grid-cols-[280px_1fr]'
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-[#bcd6ff] via-[#b2ccff] to-[#c7ddff] px-4 py-6">
+    <div className="h-[100dvh] lg:h-screen overflow-hidden bg-gradient-to-br from-[#bcd6ff] via-[#b2ccff] to-[#c7ddff] lg:px-4 lg:py-6">
       <div
-        className={`mx-auto grid h-[92vh] max-w-[96rem] grid-cols-1 gap-5 ${gridColumns}`}
+        className={`mx-auto grid h-full lg:h-[92vh] max-w-[96rem] grid-cols-1 lg:gap-5 ${gridColumns}`}
       >
         <aside
-          className={`${
-            mobileView === 'list' ? 'flex' : 'hidden'
-          } h-[92vh] flex-col gap-4 overflow-hidden rounded-2xl border border-blue-200 bg-blue-100/70 p-4 shadow-[0_12px_30px_rgba(30,41,59,0.1)] lg:flex`}
+          className={`${mobileView === 'list' ? 'flex' : 'hidden'
+            } h-full lg:h-[92vh] flex-col gap-4 overflow-hidden lg:rounded-2xl lg:border lg:border-blue-200 bg-blue-50 lg:bg-blue-100/70 p-4 lg:shadow-[0_12px_30px_rgba(30,41,59,0.1)] lg:flex`}
         >
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -293,9 +292,9 @@ function GroupChatContainer({
               type="button"
               onClick={() => setIsProfileOpen(true)}
               aria-label="Profile"
-              className="rounded-full p-1 text-slate-500 transition hover:bg-blue-200/60 hover:text-blue-900"
+              className="rounded-full p-2 lg:p-1 text-slate-500 transition hover:bg-blue-200/60 hover:text-blue-900"
             >
-              <UserCircleIcon className="h-5 w-5" />
+              <UserCircleIcon className="h-7 w-7 lg:h-5 lg:w-5" />
             </button>
           </div>
           <div>
@@ -303,22 +302,20 @@ function GroupChatContainer({
               <button
                 type="button"
                 onClick={() => setLeftTab('groups')}
-                className={`flex-1 rounded-md px-3 py-1 text-xs font-semibold ${
-                  leftTab === 'groups'
+                className={`flex-1 rounded-md px-3 py-1 text-xs font-semibold ${leftTab === 'groups'
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-600'
-                }`}
+                  }`}
               >
                 Groups
               </button>
               <button
                 type="button"
                 onClick={() => setLeftTab('users')}
-                className={`flex-1 rounded-md px-3 py-1 text-xs font-semibold ${
-                  leftTab === 'users'
+                className={`flex-1 rounded-md px-3 py-1 text-xs font-semibold ${leftTab === 'users'
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-600'
-                }`}
+                  }`}
               >
                 Users
               </button>
@@ -349,9 +346,8 @@ function GroupChatContainer({
         </aside>
 
         <main
-          className={`${
-            mobileView === 'chat' ? 'flex' : 'hidden'
-          } h-[92vh] flex-col overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-[0_20px_50px_rgba(30,41,59,0.14)] lg:flex`}
+          className={`${mobileView === 'chat' ? 'flex' : 'hidden'
+            } h-full lg:h-[92vh] flex-col overflow-hidden lg:rounded-2xl lg:border lg:border-blue-200 bg-white lg:shadow-[0_20px_50px_rgba(30,41,59,0.14)] lg:flex`}
         >
           {hasActiveChat ? (
             <ChatHeader
@@ -447,11 +443,9 @@ function GroupChatContainer({
         </main>
 
         <aside
-          className={`${
-            mobileView === 'info' ? 'flex' : 'hidden'
-          } h-[92vh] flex-col gap-4 overflow-hidden rounded-2xl border border-blue-200 bg-blue-100/70 p-5 shadow-[0_12px_30px_rgba(30,41,59,0.1)] ${
-            isInfoOpen ? 'lg:flex' : 'lg:hidden'
-          }`}
+          className={`${mobileView === 'info' ? 'flex' : 'hidden'
+            } h-full lg:h-[92vh] flex-col gap-4 overflow-hidden lg:rounded-2xl lg:border lg:border-blue-200 bg-blue-50 lg:bg-blue-100/70 p-4 lg:p-5 lg:shadow-[0_12px_30px_rgba(30,41,59,0.1)] ${isInfoOpen ? 'lg:flex' : 'lg:hidden'
+            }`}
         >
           <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
             <div className="flex items-center gap-2">
@@ -500,11 +494,10 @@ function GroupChatContainer({
                           full_name: member.full_name,
                         })
                       }
-                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-xs text-slate-700 ${
-                        member.is_banned
+                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-xs text-slate-700 ${member.is_banned
                           ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
                           : 'border-blue-200 bg-white/90 hover:bg-blue-100'
-                      }`}
+                        }`}
                     >
                       <span className="grid h-8 w-8 place-items-center rounded-full bg-blue-200 text-xs font-semibold text-blue-800">
                         {(member.full_name || member.username)[0]?.toUpperCase()}

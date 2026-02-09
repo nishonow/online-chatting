@@ -25,9 +25,9 @@ function ChatHeader({ title, subtitle, onBack, onInfo, variant = 'group' }: Chat
               type="button"
               onClick={onBack}
               aria-label="Back"
-              className="rounded-full p-1 text-blue-100 transition hover:bg-white/10 lg:hidden"
+              className="rounded-full p-2 lg:p-1 text-blue-100 transition hover:bg-white/10 lg:hidden"
             >
-              <ArrowLeftIcon className="h-4 w-4" />
+              <ArrowLeftIcon className="h-6 w-6 lg:h-4 lg:w-4" />
             </button>
           ) : null}
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-blue-100">
@@ -44,9 +44,9 @@ function ChatHeader({ title, subtitle, onBack, onInfo, variant = 'group' }: Chat
               type="button"
               onClick={onInfo}
               aria-label="Info"
-              className="rounded-full p-1 text-blue-100 transition hover:bg-white/10"
+              className="rounded-full p-2 lg:p-1 text-blue-100 transition hover:bg-white/10"
             >
-              <InformationCircleIcon className="h-5 w-5" />
+              <InformationCircleIcon className="h-6 w-6 lg:h-5 lg:w-5" />
             </button>
           ) : null}
         </div>

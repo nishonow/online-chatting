@@ -16,7 +16,7 @@ function Composer({ value, disabled, onChange, onSubmit }: ComposerProps) {
           placeholder="Type your message"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+          className="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-base lg:text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
         />
         <button
           type="submit"
