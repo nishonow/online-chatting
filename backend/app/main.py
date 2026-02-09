@@ -442,8 +442,12 @@ def unban_member(
 
 
 @app.websocket("/ws/groups/{group_id}")
-async def group_ws(websocket: WebSocket, group_id: int, token: str = Query(...)):
-    payload = auth.decode_token(token)
+async def group_ws(websocket: WebSocket, group_id: int, token: str = None):
+    # If token is not provided as a dependency, try to get it from query params manually
+    if token is None:
+        token = websocket.query_params.get("token")
+
+    payload = auth.decode_token(token) if token else None
     if payload is None or "sub" not in payload:
         await websocket.close(code=1008)
         return
@@ -465,8 +469,12 @@ async def group_ws(websocket: WebSocket, group_id: int, token: str = Query(...))
 
 
 @app.websocket("/ws/dm/{username}")
-async def dm_ws(websocket: WebSocket, username: str, token: str = Query(...)):
-    payload = auth.decode_token(token)
+async def dm_ws(websocket: WebSocket, username: str, token: str = None):
+    # If token is not provided as a dependency, try to get it from query params manually
+    if token is None:
+        token = websocket.query_params.get("token")
+
+    payload = auth.decode_token(token) if token else None
     if payload is None or "sub" not in payload:
         await websocket.close(code=1008)
         return
