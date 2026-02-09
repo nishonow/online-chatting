@@ -30,12 +30,12 @@ function ChatHeader({ title, subtitle, onBack, onInfo, variant = 'group' }: Chat
               <ArrowLeftIcon className="h-6 w-6 lg:h-4 lg:w-4" />
             </button>
           ) : null}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-blue-100">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-blue-100">
             <AvatarIcon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-base font-semibold">{title}</p>
-            <p className="truncate text-xs text-blue-100/90">{subtitle}</p>
+            <p className="hidden truncate text-xs text-blue-100/90 lg:block">{subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
