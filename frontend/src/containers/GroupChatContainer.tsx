@@ -22,13 +22,27 @@ import { useMembers } from '../hooks/useMembers'
 import { useMessages } from '../hooks/useMessages'
 import { getUserByUsername, updateMe, type DirectUser } from '../utils/api'
 
-function GroupChatContainer() {
+interface GroupChatContainerProps {
+  initialGroupId?: number | null
+  initialUsername?: string | null
+}
+
+function GroupChatContainer({
+  initialGroupId: propGroupId,
+  initialUsername: propUsername,
+}: GroupChatContainerProps = {}) {
   const { groupId, username } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const leftTab = (searchParams.get('tab') as 'all' | 'groups' | 'users') || 'all'
 
-  const initialGroupId = groupId ? Number(groupId) : null
-  const initialUsername = username || null
+  const initialGroupId =
+    propGroupId !== undefined
+      ? propGroupId
+      : groupId
+        ? Number(groupId)
+        : null
+  const initialUsername =
+    propUsername !== undefined ? propUsername : username || null
 
   const setLeftTab = (tab: 'all' | 'groups' | 'users') => {
     setSearchParams((prev) => {
