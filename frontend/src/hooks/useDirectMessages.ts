@@ -53,36 +53,59 @@ export function useDirectMessages(
       return
     }
 
-    const wsBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(
-      /^http/,
-      'ws',
-    )
-    const socket = new WebSocket(`${wsBase}/ws/dm/${selectedUser.username}?token=${token}`)
+    let socket: WebSocket | null = null
+    let reconnectTimer: number | null = null
 
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data)
-        if (payload.type === 'dm_message') {
-          const incoming: DirectMessage = payload.data
-          setMessages((prev) =>
-            prev.some((item) => item.id === incoming.id) ? prev : [...prev, incoming],
-          )
-          cacheRef.current.set(
-            selectedUser.username,
-            cacheRef.current
-              .get(selectedUser.username)
-              ?.some((item) => item.id === incoming.id)
-              ? (cacheRef.current.get(selectedUser.username) as DirectMessage[])
-              : [...(cacheRef.current.get(selectedUser.username) || []), incoming],
-          )
+    const connect = () => {
+      const wsBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(
+        /^http/,
+        'ws',
+      )
+      socket = new WebSocket(`${wsBase}/ws/dm/${selectedUser.username}?token=${token}`)
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data)
+          if (payload.type === 'dm_message') {
+            const incoming: DirectMessage = payload.data
+            setMessages((prev) =>
+              prev.some((item) => item.id === incoming.id) ? prev : [...prev, incoming],
+            )
+            cacheRef.current.set(
+              selectedUser.username,
+              cacheRef.current
+                .get(selectedUser.username)
+                ?.some((item) => item.id === incoming.id)
+                ? (cacheRef.current.get(selectedUser.username) as DirectMessage[])
+                : [...(cacheRef.current.get(selectedUser.username) || []), incoming],
+            )
+          }
+        } catch (err) {
+          return
         }
-      } catch (err) {
-        return
+      }
+
+      socket.onclose = () => {
+        reconnectTimer = window.setTimeout(() => {
+          connect()
+        }, 3000)
+      }
+
+      socket.onerror = () => {
+        socket?.close()
       }
     }
 
+    connect()
+
     return () => {
-      socket.close()
+      if (socket) {
+        socket.onclose = null
+        socket.close()
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+      }
     }
   }, [selectedUser, token])
 

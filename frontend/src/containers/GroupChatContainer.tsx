@@ -5,13 +5,14 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import ChatHeader from '../components/ChatHeader'
 import Composer from '../components/Composer'
 import DirectUserList from '../components/DirectUserList'
 import GroupList from '../components/GroupList'
 import JoinModal from '../components/JoinModal'
 import MessageList from '../components/MessageList'
+import AllChatsList from '../components/AllChatsList'
 import ProfileModal from '../components/ProfileModal'
 import { useAuth } from '../hooks/useAuth'
 import { useDirectMessages } from '../hooks/useDirectMessages'
@@ -21,17 +22,22 @@ import { useMembers } from '../hooks/useMembers'
 import { useMessages } from '../hooks/useMessages'
 import { getUserByUsername, updateMe, type DirectUser } from '../utils/api'
 
-type GroupChatContainerProps = {
-  initialGroupId: number | null
-  initialUsername?: string | null
-}
+function GroupChatContainer() {
+  const { groupId, username } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const leftTab = (searchParams.get('tab') as 'all' | 'groups' | 'users') || 'all'
 
-function GroupChatContainer({
-  initialGroupId,
-  initialUsername = null,
-}: GroupChatContainerProps) {
+  const initialGroupId = groupId ? Number(groupId) : null
+  const initialUsername = username || null
+
+  const setLeftTab = (tab: 'all' | 'groups' | 'users') => {
+    setSearchParams((prev) => {
+      prev.set('tab', tab)
+      return prev
+    }, { replace: true })
+  }
+
   const hasInitialSelection = Boolean(initialGroupId || initialUsername)
-  const [leftTab, setLeftTab] = useState<'groups' | 'users'>('groups')
   const [activeChat, setActiveChat] = useState<'group' | 'dm'>(
     initialUsername ? 'dm' : 'group',
   )
@@ -109,7 +115,12 @@ function GroupChatContainer({
         const user = await getUserByUsername(token, initialUsername)
         setSelectedDmUser(user)
         setActiveChat('dm')
-        setLeftTab('users')
+        // Keep 'all' if that's the default or let user switch, 
+        // but typically valid to switch to specific tab or stay on 'all'.
+        // Let's default to 'users' if deep linked? 
+        // Actually user request implies 3 tabs. Let's stick to 'all' as default or whatever user set.
+        // For deep link, maybe relevant tab.
+        // setLeftTab('users') // Don't override tab on load anymore, respect URL
         setMobileView('chat')
       } catch (err) {
         handleError(err instanceof Error ? err.message : 'Failed to load user')
@@ -125,7 +136,7 @@ function GroupChatContainer({
     }
 
     setActiveChat('group')
-    setLeftTab('groups')
+    // setLeftTab('groups') // Don't override tab
     setMobileView('chat')
     setIsInfoOpen(true)
   }, [initialGroupId])
@@ -163,7 +174,7 @@ function GroupChatContainer({
         } else {
           clearSelection()
         }
-        navigate('/')
+        navigate(`/?tab=${leftTab}`)
         setMobileView('list')
       }
     }
@@ -213,8 +224,7 @@ function GroupChatContainer({
     clearSelection()
     setSelectedDmUser(user)
     setActiveChat('dm')
-    setLeftTab('users')
-    navigate(`/dm/${user.username}`)
+    navigate(`/dm/${user.username}?tab=${leftTab}`)
     setMobileView('chat')
   }
 
@@ -301,10 +311,20 @@ function GroupChatContainer({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setLeftTab('groups')}
-                className={`flex-1 rounded-md px-3 py-1 text-xs font-semibold ${leftTab === 'groups'
+                onClick={() => setLeftTab('all')}
+                className={`flex-1 rounded-md px-2 py-1 text-[10px] lg:text-xs font-semibold ${leftTab === 'all'
                   ? 'bg-blue-600 text-white'
-                  : 'text-slate-600'
+                  : 'text-slate-600 hover:bg-white/50'
+                  }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeftTab('groups')}
+                className={`flex-1 rounded-md px-2 py-1 text-[10px] lg:text-xs font-semibold ${leftTab === 'groups'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-600 hover:bg-white/50'
                   }`}
               >
                 Groups
@@ -312,9 +332,9 @@ function GroupChatContainer({
               <button
                 type="button"
                 onClick={() => setLeftTab('users')}
-                className={`flex-1 rounded-md px-3 py-1 text-xs font-semibold ${leftTab === 'users'
+                className={`flex-1 rounded-md px-2 py-1 text-[10px] lg:text-xs font-semibold ${leftTab === 'users'
                   ? 'bg-blue-600 text-white'
-                  : 'text-slate-600'
+                  : 'text-slate-600 hover:bg-white/50'
                   }`}
               >
                 Users
@@ -322,16 +342,37 @@ function GroupChatContainer({
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {leftTab === 'groups' ? (
+            {leftTab === 'all' ? (
+              <AllChatsList
+                groups={groups}
+                users={directUsers}
+                selectedId={
+                  activeChat === 'group' && selectedGroupId
+                    ? { type: 'group', id: selectedGroupId }
+                    : activeChat === 'dm' && selectedDmUser
+                      ? { type: 'dm', id: selectedDmUser.id }
+                      : null
+                }
+                onSelectGroup={(group) => {
+                  navigate(`/group/${group.id}?tab=${leftTab}`)
+                  setSelectedDmUser(null)
+                  selectGroup(group)
+                  setActiveChat('group')
+                  setMobileView('chat')
+                }}
+                onSelectUser={(user) => {
+                  handleSelectDirectUser(user)
+                }}
+              />
+            ) : leftTab === 'groups' ? (
               <GroupList
                 groups={groups}
                 selectedGroupId={selectedGroupId}
                 onSelect={(group) => {
-                  navigate(`/group/${group.id}`)
+                  navigate(`/group/${group.id}?tab=${leftTab}`)
                   setSelectedDmUser(null)
                   selectGroup(group)
                   setActiveChat('group')
-                  setLeftTab('groups')
                   setMobileView('chat')
                 }}
               />
@@ -360,7 +401,7 @@ function GroupChatContainer({
                 } else {
                   clearSelection()
                 }
-                navigate('/')
+                navigate(`/?tab=${leftTab}`)
                 setMobileView('list')
               }}
               onInfo={handleToggleInfo}
@@ -564,7 +605,7 @@ function GroupChatContainer({
                 onClick={() => {
                   setBannedNotice('')
                   clearSelection()
-                  navigate('/')
+                  navigate(`/?tab=${leftTab}`)
                   setMobileView('list')
                 }}
                 className="rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white"
