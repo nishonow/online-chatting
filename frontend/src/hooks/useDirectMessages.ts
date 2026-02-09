@@ -63,9 +63,14 @@ export function useDirectMessages(
       )
       socket = new WebSocket(`${wsBase}/ws/dm/${selectedUser.username}?token=${token}`)
 
+      socket.onopen = () => {
+        console.log(`Connected to DM chat with: ${selectedUser.username}`)
+      }
+
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data)
+          console.log('Received DM websocket message:', payload)
           if (payload.type === 'dm_message') {
             const incoming: DirectMessage = payload.data
             setMessages((prev) =>
@@ -85,7 +90,8 @@ export function useDirectMessages(
         }
       }
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
+        console.log(`DM socket closed (code: ${event.code}). Reconnecting in 3s...`)
         reconnectTimer = window.setTimeout(() => {
           connect()
         }, 3000)

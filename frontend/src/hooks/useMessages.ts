@@ -61,12 +61,13 @@ export function useMessages(
       socket = new WebSocket(`${wsBase}/ws/groups/${selectedGroupId}?token=${token}`)
 
       socket.onopen = () => {
-        // console.log('Connected to group chat')
+        console.log(`Connected to group chat: ${selectedGroupId}`)
       }
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data)
+          console.log('Received websocket message:', payload)
           if (payload.type === 'message') {
             const incoming: Message = payload.data
             setMessages((prev) =>
@@ -86,7 +87,8 @@ export function useMessages(
         }
       }
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
+        console.log(`Group chat socket closed (code: ${event.code}). Reconnecting in 3s...`)
         // Try to reconnect after 3 seconds
         reconnectTimer = window.setTimeout(() => {
           if (isMember === true) {

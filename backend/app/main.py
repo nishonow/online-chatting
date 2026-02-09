@@ -1,8 +1,16 @@
 import os
 from typing import Dict, Set
 
-from anyio import from_thread
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -16,10 +24,9 @@ app = FastAPI(title="Online Chat API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://online-chatting-liart.vercel.app"],
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"] ,
+    allow_headers=["*"],
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -58,8 +65,19 @@ class ConnectionManager:
                 del self.active_connections[group_id]
 
     async def broadcast(self, group_id: int, payload: dict) -> None:
-        for websocket in list(self.active_connections.get(group_id, set())):
-            await websocket.send_json(payload)
+        if group_id not in self.active_connections:
+            return
+        
+        dead_connections = []
+        # Create a list to iterate over to avoid "Set size changed during iteration"
+        for websocket in list(self.active_connections[group_id]):
+            try:
+                await websocket.send_json(payload)
+            except Exception:
+                dead_connections.append(websocket)
+        
+        for websocket in dead_connections:
+            self.disconnect(group_id, websocket)
 
 
 manager = ConnectionManager()
@@ -80,8 +98,18 @@ class DirectConnectionManager:
                 del self.active_connections[thread_id]
 
     async def broadcast(self, thread_id: int, payload: dict) -> None:
-        for websocket in list(self.active_connections.get(thread_id, set())):
-            await websocket.send_json(payload)
+        if thread_id not in self.active_connections:
+            return
+        
+        dead_connections = []
+        for websocket in list(self.active_connections[thread_id]):
+            try:
+                await websocket.send_json(payload)
+            except Exception:
+                dead_connections.append(websocket)
+        
+        for websocket in dead_connections:
+            self.disconnect(thread_id, websocket)
 
 
 dm_manager = DirectConnectionManager()
@@ -261,6 +289,7 @@ def join_group(
 def create_message(
     group_id: int,
     message: schemas.MessageCreate,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -280,7 +309,7 @@ def create_message(
             "created_at": db_message.created_at.isoformat(),
         },
     }
-    from_thread.run(manager.broadcast, group_id, payload)
+    background_tasks.add_task(manager.broadcast, group_id, payload)
     return db_message
 
 
@@ -352,6 +381,7 @@ def list_dm_messages(
 def create_dm_message(
     username: str,
     message: schemas.DirectMessageCreate,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -375,7 +405,7 @@ def create_dm_message(
             "created_at": db_message.created_at.isoformat(),
         },
     }
-    from_thread.run(dm_manager.broadcast, thread.id, payload)
+    background_tasks.add_task(dm_manager.broadcast, thread.id, payload)
     return db_message
 
 
@@ -412,7 +442,7 @@ def unban_member(
 
 
 @app.websocket("/ws/groups/{group_id}")
-async def group_ws(websocket: WebSocket, group_id: int, token: str):
+async def group_ws(websocket: WebSocket, group_id: int, token: str = Query(...)):
     payload = auth.decode_token(token)
     if payload is None or "sub" not in payload:
         await websocket.close(code=1008)
@@ -435,7 +465,7 @@ async def group_ws(websocket: WebSocket, group_id: int, token: str):
 
 
 @app.websocket("/ws/dm/{username}")
-async def dm_ws(websocket: WebSocket, username: str, token: str):
+async def dm_ws(websocket: WebSocket, username: str, token: str = Query(...)):
     payload = auth.decode_token(token)
     if payload is None or "sub" not in payload:
         await websocket.close(code=1008)
