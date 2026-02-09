@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   listDirectMessages,
   sendDirectMessage,
@@ -21,6 +21,7 @@ export function useDirectMessages(
 ): UseDirectMessagesResult {
   const [messages, setMessages] = useState<DirectMessage[]>([])
   const [messageText, setMessageText] = useState('')
+  const cacheRef = useRef(new Map<string, DirectMessage[]>())
 
   useEffect(() => {
     if (!token || !selectedUser) {
@@ -29,10 +30,16 @@ export function useDirectMessages(
       return
     }
 
+    const cached = cacheRef.current.get(selectedUser.username)
+    if (cached) {
+      setMessages(cached)
+    }
+
     const load = async () => {
       try {
         const data = await listDirectMessages(token, selectedUser.username)
         setMessages(data)
+        cacheRef.current.set(selectedUser.username, data)
       } catch (err) {
         onError(err instanceof Error ? err.message : 'Failed to load messages')
       }
@@ -60,6 +67,14 @@ export function useDirectMessages(
           setMessages((prev) =>
             prev.some((item) => item.id === incoming.id) ? prev : [...prev, incoming],
           )
+          cacheRef.current.set(
+            selectedUser.username,
+            cacheRef.current
+              .get(selectedUser.username)
+              ?.some((item) => item.id === incoming.id)
+              ? (cacheRef.current.get(selectedUser.username) as DirectMessage[])
+              : [...(cacheRef.current.get(selectedUser.username) || []), incoming],
+          )
         }
       } catch (err) {
         return
@@ -85,6 +100,14 @@ export function useDirectMessages(
       )
       setMessages((prev) =>
         prev.some((item) => item.id === newMessage.id) ? prev : [...prev, newMessage],
+      )
+      cacheRef.current.set(
+        selectedUser.username,
+        cacheRef.current
+          .get(selectedUser.username)
+          ?.some((item) => item.id === newMessage.id)
+          ? (cacheRef.current.get(selectedUser.username) as DirectMessage[])
+          : [...(cacheRef.current.get(selectedUser.username) || []), newMessage],
       )
       setMessageText('')
       onSent?.()

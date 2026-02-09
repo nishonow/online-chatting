@@ -388,6 +388,8 @@ def ban_member(
 ):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot ban yourself")
     membership = crud.ban_member(db, group_id, user_id)
     if not membership:
         raise HTTPException(status_code=404, detail="Member not found")

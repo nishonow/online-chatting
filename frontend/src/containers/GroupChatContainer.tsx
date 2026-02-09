@@ -1,4 +1,9 @@
-import { InformationCircleIcon, UsersIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import {
+  InformationCircleIcon,
+  UserCircleIcon,
+  UsersIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ChatHeader from '../components/ChatHeader'
@@ -25,6 +30,7 @@ function GroupChatContainer({
   initialGroupId,
   initialUsername = null,
 }: GroupChatContainerProps) {
+  const hasInitialSelection = Boolean(initialGroupId || initialUsername)
   const [leftTab, setLeftTab] = useState<'groups' | 'users'>('groups')
   const [activeChat, setActiveChat] = useState<'group' | 'dm'>(
     initialUsername ? 'dm' : 'group',
@@ -35,8 +41,11 @@ function GroupChatContainer({
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isProfileSaving, setIsProfileSaving] = useState(false)
   const [bannedNotice, setBannedNotice] = useState('')
+  const [isInfoOpen, setIsInfoOpen] = useState(hasInitialSelection)
   const { token, me, refresh } = useAuth()
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'info'>('list')
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'info'>(
+    hasInitialSelection ? 'chat' : 'list',
+  )
   const navigate = useNavigate()
   const handleError = useCallback((message: string) => {
     let normalized = message
@@ -73,8 +82,8 @@ function GroupChatContainer({
   const { members } = useMembers(token, selectedGroup, handleError)
   const { messages, messageText, setMessageText, send } = useMessages(
     token,
-    selectedGroup,
-    me,
+    selectedGroupId,
+    selectedGroup?.is_member,
     handleError,
   )
   const { users: directUsers, refresh: refreshDirectUsers } = useDirectUsers(token, handleError)
@@ -117,15 +126,24 @@ function GroupChatContainer({
 
     setActiveChat('group')
     setLeftTab('groups')
+    setMobileView('chat')
+    setIsInfoOpen(true)
   }, [initialGroupId])
 
   useEffect(() => {
     setError('')
     setBannedNotice('')
     if (!selectedGroupId && !selectedDmUser) {
-      setMobileView('list')
+      if (!hasInitialSelection) {
+        setMobileView('list')
+      }
+      setIsInfoOpen(false)
+      return
     }
-  }, [selectedDmUser, selectedGroupId])
+
+    setMobileView('chat')
+    setIsInfoOpen(true)
+  }, [hasInitialSelection, selectedDmUser, selectedGroupId])
 
   useEffect(() => {
     if (isProfileOpen) {
@@ -176,25 +194,47 @@ function GroupChatContainer({
   const dmDisplayName = selectedDmUser?.full_name || selectedDmUser?.username
   const headerTitle =
     activeChat === 'dm'
-      ? dmDisplayName || 'Select a user'
+      ? selectedDmUser
+        ? dmDisplayName || ''
+        : ''
       : bannedNotice
         ? 'Access restricted'
-        : selectedGroup?.name || 'Select a group'
+        : selectedGroup?.name || ''
   const headerSubtitle =
     activeChat === 'dm'
       ? selectedDmUser
         ? `@${selectedDmUser.username}`
-        : 'Direct message'
+        : ''
       : bannedNotice
         ? 'You are banned from this group.'
-        : selectedGroup?.description || 'Group chat'
+        : selectedGroup?.description || ''
 
   const handleSelectDirectUser = (user: DirectUser) => {
+    clearSelection()
     setSelectedDmUser(user)
     setActiveChat('dm')
     setLeftTab('users')
     navigate(`/dm/${user.username}`)
     setMobileView('chat')
+  }
+
+  const handleToggleInfo = () => {
+    setIsInfoOpen((prev) => {
+      const next = !prev
+      if (next) {
+        setMobileView('info')
+      } else if (mobileView === 'info') {
+        setMobileView('chat')
+      }
+      return next
+    })
+  }
+
+  const handleHideInfo = () => {
+    setIsInfoOpen(false)
+    if (mobileView === 'info') {
+      setMobileView('chat')
+    }
   }
 
   const handleProfileSave = async (payload: {
@@ -229,15 +269,35 @@ function GroupChatContainer({
     activeChat === 'dm'
       ? !selectedDmUser
       : !selectedGroupId || !selectedGroup?.is_member
+  const hasActiveChat = Boolean(selectedGroupId || selectedDmUser)
+  const isInitialLoading = hasInitialSelection && !hasActiveChat
+  const gridColumns = isInfoOpen
+    ? 'lg:grid-cols-[280px_1fr_320px]'
+    : 'lg:grid-cols-[280px_1fr]'
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-[#bcd6ff] via-[#b2ccff] to-[#c7ddff] px-4 py-6">
-      <div className="mx-auto grid h-[92vh] max-w-[96rem] grid-cols-1 gap-5 lg:grid-cols-[280px_1fr_320px]">
+      <div
+        className={`mx-auto grid h-[92vh] max-w-[96rem] grid-cols-1 gap-5 ${gridColumns}`}
+      >
         <aside
           className={`${
             mobileView === 'list' ? 'flex' : 'hidden'
           } h-[92vh] flex-col gap-4 overflow-hidden rounded-2xl border border-blue-200 bg-blue-100/70 p-4 shadow-[0_12px_30px_rgba(30,41,59,0.1)] lg:flex`}
         >
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Navigation
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(true)}
+              aria-label="Profile"
+              className="rounded-full p-1 text-slate-500 transition hover:bg-blue-200/60 hover:text-blue-900"
+            >
+              <UserCircleIcon className="h-5 w-5" />
+            </button>
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <button
@@ -271,6 +331,7 @@ function GroupChatContainer({
                 selectedGroupId={selectedGroupId}
                 onSelect={(group) => {
                   navigate(`/group/${group.id}`)
+                  setSelectedDmUser(null)
                   selectGroup(group)
                   setActiveChat('group')
                   setLeftTab('groups')
@@ -292,101 +353,105 @@ function GroupChatContainer({
             mobileView === 'chat' ? 'flex' : 'hidden'
           } h-[92vh] flex-col overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-[0_20px_50px_rgba(30,41,59,0.14)] lg:flex`}
         >
-          <ChatHeader
-            title={headerTitle}
-            subtitle={headerSubtitle}
-            onBack={() => {
-              if (activeChat === 'dm') {
-                setSelectedDmUser(null)
-              } else {
-                clearSelection()
-              }
-              navigate('/')
-              setMobileView('list')
-            }}
-            onInfo={() => setMobileView('info')}
-            onProfile={() => setIsProfileOpen(true)}
-          />
+          {hasActiveChat ? (
+            <ChatHeader
+              title={headerTitle}
+              subtitle={headerSubtitle}
+              variant={activeChat === 'dm' ? 'dm' : 'group'}
+              onBack={() => {
+                if (activeChat === 'dm') {
+                  setSelectedDmUser(null)
+                } else {
+                  clearSelection()
+                }
+                navigate('/')
+                setMobileView('list')
+              }}
+              onInfo={handleToggleInfo}
+            />
+          ) : null}
 
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex min-h-0 flex-1 flex-col bg-blue-100/70 px-8 py-6">
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
               {activeChat === 'group' ? (
                 <>
-                  {!selectedGroup ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearSelection()
-                        navigate('/')
-                      }}
-                      className="flex flex-1 items-center justify-center text-sm text-slate-600"
-                    >
-                      Select a group to start chatting.
-                    </button>
+                  {!selectedGroupId && !isInitialLoading ? (
+                    <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+                      Select a chat.
+                    </div>
                   ) : null}
                   {selectedGroup && !selectedGroup.is_member ? (
                     <div className="flex flex-1 items-center justify-center text-sm text-slate-600">
                       Join this group to see messages.
                     </div>
                   ) : null}
-                  {selectedGroup?.is_member && messages.length === 0 ? (
-                    <div className="flex flex-1 items-center justify-center text-sm text-slate-600">
-                      No messages yet.
-                    </div>
-                  ) : null}
-                  {selectedGroup?.is_member && messages.length > 0 ? (
-                    <div
-                      className="min-h-0 flex-1 overflow-y-auto pr-2 scroll-auto"
-                      ref={messageScrollRef}
-                    >
-                      <MessageList messages={messages} me={me} />
+                  {selectedGroup?.is_member ? (
+                    <div className="min-h-0 flex-1">
+                      {messages.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-600">
+                          No messages yet.
+                        </div>
+                      ) : null}
+                      {messages.length > 0 ? (
+                        <div
+                          className="min-h-0 h-full overflow-y-auto pr-2 scroll-auto"
+                          ref={messageScrollRef}
+                        >
+                          <MessageList messages={messages} me={me} />
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </>
               ) : (
                 <>
-                  {!selectedDmUser ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDmUser(null)
-                        navigate('/')
-                      }}
-                      className="flex flex-1 items-center justify-center text-sm text-slate-600"
-                    >
-                      Select a user to start chatting.
-                    </button>
-                  ) : null}
-                  {selectedDmUser && directMessages.length === 0 ? (
-                    <div className="flex flex-1 items-center justify-center text-sm text-slate-600">
-                      No messages yet.
+                  {!selectedDmUser && !isInitialLoading ? (
+                    <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+                      Select a chat.
                     </div>
                   ) : null}
-                  {selectedDmUser && directMessages.length > 0 ? (
-                    <div
-                      className="min-h-0 flex-1 overflow-y-auto pr-2 scroll-auto"
-                      ref={messageScrollRef}
-                    >
-                      <MessageList messages={directMessages} me={me} showSenderLabel={false} />
+                  {selectedDmUser ? (
+                    <div className="min-h-0 flex-1">
+                      {directMessages.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-600">
+                          No messages yet.
+                        </div>
+                      ) : null}
+                      {directMessages.length > 0 ? (
+                        <div
+                          className="min-h-0 h-full overflow-y-auto pr-2 scroll-auto"
+                          ref={messageScrollRef}
+                        >
+                          <MessageList
+                            messages={directMessages}
+                            me={me}
+                            showSenderLabel={false}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </>
               )}
             </div>
-            <Composer
-              value={activeMessageText}
-              onChange={setActiveMessageText}
-              onSubmit={sendActiveMessage}
-              disabled={isComposerDisabled}
-            />
+            {hasActiveChat ? (
+              <Composer
+                value={activeMessageText}
+                onChange={setActiveMessageText}
+                onSubmit={sendActiveMessage}
+                disabled={isComposerDisabled}
+              />
+            ) : null}
           </div>
         </main>
 
         <aside
           className={`${
             mobileView === 'info' ? 'flex' : 'hidden'
-          } h-[92vh] flex-col gap-4 overflow-hidden rounded-2xl border border-blue-200 bg-blue-100/70 p-5 shadow-[0_12px_30px_rgba(30,41,59,0.1)] lg:flex`}
+          } h-[92vh] flex-col gap-4 overflow-hidden rounded-2xl border border-blue-200 bg-blue-100/70 p-5 shadow-[0_12px_30px_rgba(30,41,59,0.1)] ${
+            isInfoOpen ? 'lg:flex' : 'lg:hidden'
+          }`}
         >
           <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
             <div className="flex items-center gap-2">
@@ -394,27 +459,11 @@ function GroupChatContainer({
               <span>{activeChat === 'dm' ? 'Direct chat' : 'Group info'}</span>
             </div>
             <div className="flex items-center gap-2">
-              {selectedGroup || selectedDmUser ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeChat === 'dm') {
-                      setSelectedDmUser(null)
-                    } else {
-                      clearSelection()
-                    }
-                    navigate('/')
-                    setMobileView('list')
-                  }}
-                  className="text-xs font-semibold text-slate-500"
-                >
-                  Clear
-                </button>
-              ) : null}
               <button
                 type="button"
-                onClick={() => setMobileView('chat')}
-                className="lg:hidden"
+                onClick={handleHideInfo}
+                aria-label="Hide info"
+                className="rounded-full p-1 text-slate-500 transition hover:bg-blue-200/60"
               >
                 <XMarkIcon className="h-4 w-4 text-slate-500" />
               </button>

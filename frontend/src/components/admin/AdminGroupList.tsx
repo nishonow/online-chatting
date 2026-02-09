@@ -8,11 +8,16 @@ type AdminGroupListProps = {
 
 function AdminGroupList({ groups, onEdit, onDelete }: AdminGroupListProps) {
   return (
-    <div className="rounded-2xl border border-blue-200 bg-white p-6">
-      <p className="text-sm font-semibold text-slate-700">All groups</p>
-      <ul className="mt-3 space-y-3 text-sm text-slate-600">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-slate-700">All groups</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+          Groups
+        </p>
+      </div>
+      <ul className="mt-4 space-y-3 text-sm text-slate-600">
         {groups.map((group) => (
-          <li key={group.id} className="rounded-lg border border-blue-100 p-3">
+          <li key={group.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="font-semibold text-slate-800">{group.name}</p>
@@ -23,7 +28,7 @@ function AdminGroupList({ groups, onEdit, onDelete }: AdminGroupListProps) {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="text-xs font-semibold text-blue-600"
+                  className="text-xs font-semibold text-emerald-700"
                   onClick={() => onEdit(group)}
                 >
                   Edit

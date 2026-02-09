@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { listMessages, sendMessage, type Group, type Message, type User } from '../utils/api'
+import { useEffect, useRef, useState } from 'react'
+import { listMessages, sendMessage, type Message } from '../utils/api'
 
 type UseMessagesResult = {
   messages: Message[]
@@ -10,33 +10,43 @@ type UseMessagesResult = {
 
 export function useMessages(
   token: string,
-  selectedGroup: Group | undefined,
-  me: User | null,
+  selectedGroupId: number | null,
+  isMember: boolean | undefined,
   onError: (message: string) => void,
 ): UseMessagesResult {
   const [messages, setMessages] = useState<Message[]>([])
   const [messageText, setMessageText] = useState('')
+  const cacheRef = useRef(new Map<number, Message[]>())
 
   useEffect(() => {
-    if (!token || !selectedGroup || !selectedGroup.is_member) {
+    if (!token || !selectedGroupId || isMember === false) {
       setMessages([])
       return
+    }
+    if (isMember === undefined) {
+      return
+    }
+
+    const cached = cacheRef.current.get(selectedGroupId)
+    if (cached) {
+      setMessages(cached)
     }
 
     const load = async () => {
       try {
-        const data = await listMessages(token, selectedGroup.id)
+        const data = await listMessages(token, selectedGroupId)
         setMessages(data)
+        cacheRef.current.set(selectedGroupId, data)
       } catch (err) {
         onError(err instanceof Error ? err.message : 'Failed to load messages')
       }
     }
 
     load()
-  }, [onError, selectedGroup, token])
+  }, [isMember, onError, selectedGroupId, token])
 
   useEffect(() => {
-    if (!token || !selectedGroup || !selectedGroup.is_member) {
+    if (!token || !selectedGroupId || isMember !== true) {
       return
     }
 
@@ -44,7 +54,7 @@ export function useMessages(
       /^http/,
       'ws',
     )
-    const socket = new WebSocket(`${wsBase}/ws/groups/${selectedGroup.id}?token=${token}`)
+    const socket = new WebSocket(`${wsBase}/ws/groups/${selectedGroupId}?token=${token}`)
 
     socket.onmessage = (event) => {
       try {
@@ -53,6 +63,14 @@ export function useMessages(
           const incoming: Message = payload.data
           setMessages((prev) =>
             prev.some((item) => item.id === incoming.id) ? prev : [...prev, incoming],
+          )
+          cacheRef.current.set(
+            selectedGroupId,
+            cacheRef.current
+              .get(selectedGroupId)
+              ?.some((item) => item.id === incoming.id)
+              ? (cacheRef.current.get(selectedGroupId) as Message[])
+              : [...(cacheRef.current.get(selectedGroupId) || []), incoming],
           )
         }
       } catch (err) {
@@ -63,18 +81,26 @@ export function useMessages(
     return () => {
       socket.close()
     }
-  }, [selectedGroup, token])
+  }, [isMember, selectedGroupId, token])
 
   const send = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!token || !selectedGroup || !selectedGroup.is_member || !messageText.trim()) {
+    if (!token || !selectedGroupId || isMember !== true || !messageText.trim()) {
       return
     }
 
     try {
-      const newMessage = await sendMessage(token, selectedGroup.id, messageText.trim())
+      const newMessage = await sendMessage(token, selectedGroupId, messageText.trim())
       setMessages((prev) =>
         prev.some((item) => item.id === newMessage.id) ? prev : [...prev, newMessage],
+      )
+      cacheRef.current.set(
+        selectedGroupId,
+        cacheRef.current
+          .get(selectedGroupId)
+          ?.some((item) => item.id === newMessage.id)
+          ? (cacheRef.current.get(selectedGroupId) as Message[])
+          : [...(cacheRef.current.get(selectedGroupId) || []), newMessage],
       )
       setMessageText('')
     } catch (err) {

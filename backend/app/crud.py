@@ -219,6 +219,12 @@ def delete_group(db: Session, group_id: int):
     if not group:
         return None
 
+    db.query(models.Message).filter(models.Message.group_id == group_id).delete(
+        synchronize_session=False
+    )
+    db.query(models.GroupMember).filter(models.GroupMember.group_id == group_id).delete(
+        synchronize_session=False
+    )
     db.delete(group)
     db.commit()
     return group

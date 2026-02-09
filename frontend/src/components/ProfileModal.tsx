@@ -1,3 +1,4 @@
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useEffect, useMemo, useState } from 'react'
 
 type ProfileModalProps = {
@@ -99,9 +100,10 @@ function ProfileModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-semibold text-slate-500"
+            aria-label="Close"
+            className="rounded-full p-1 text-slate-500 transition hover:bg-blue-100"
           >
-            Close
+            <XMarkIcon className="h-4 w-4" />
           </button>
         </div>
         <form className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit}>
