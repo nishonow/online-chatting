@@ -122,8 +122,8 @@ async function readErrorMessage(response: Response, fallback: string) {
         return parsed.detail
       }
       if (Array.isArray(parsed.detail)) {
-        const messages = parsed.detail
-          .map((item) => (typeof item?.msg === 'string' ? item.msg : null))
+        const messages = (parsed.detail as { msg?: string }[])
+          .map((item: { msg?: string }) => (typeof item?.msg === 'string' ? item.msg : null))
           .filter(Boolean)
         if (messages.length > 0) {
           return messages.join('; ')
