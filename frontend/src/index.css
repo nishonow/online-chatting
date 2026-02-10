@@ -25,6 +25,14 @@
   #root {
     min-height: 100vh;
   }
+
+  button, [role="button"] {
+    cursor: pointer;
+  }
+
+  button:disabled, [role="button"]:disabled {
+    cursor: not-allowed;
+  }
 }
 
 * {

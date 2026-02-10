@@ -14,6 +14,7 @@ import JoinModal from '../components/JoinModal'
 import MessageList from '../components/MessageList'
 import AllChatsList from '../components/AllChatsList'
 import ProfileModal from '../components/ProfileModal'
+import { Toast } from '../components/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useDirectMessages } from '../hooks/useDirectMessages'
 import { useDirectUsers } from '../hooks/useDirectUsers'
@@ -62,6 +63,8 @@ function GroupChatContainer({
   const [isProfileSaving, setIsProfileSaving] = useState(false)
   const [bannedNotice, setBannedNotice] = useState('')
   const [isInfoOpen, setIsInfoOpen] = useState(hasInitialSelection)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
   const { token, me, refresh } = useAuth()
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'info'>(
     hasInitialSelection ? 'chat' : 'list',
@@ -99,6 +102,16 @@ function GroupChatContainer({
     setJoinTarget,
     clearSelection,
   } = useGroups(token, initialGroupId, handleError)
+
+  const handleConfirmJoin = async () => {
+    try {
+      await confirmJoin()
+      setToast({ message: `Successfully joined ${joinTarget?.name}`, type: 'success' })
+    } catch (err) {
+      handleError(err instanceof Error ? err.message : 'Failed to join group')
+    }
+  }
+
   const { members } = useMembers(token, selectedGroup, handleError)
   const { messages, messageText, setMessageText, send } = useMessages(
     token,
@@ -119,6 +132,8 @@ function GroupChatContainer({
 
   const activeMembers = members.filter((member) => !member.is_banned)
 
+  const activeMessages = activeChat === 'dm' ? directMessages : messages
+
   useEffect(() => {
     if (!token || !initialUsername) {
       return
@@ -129,12 +144,6 @@ function GroupChatContainer({
         const user = await getUserByUsername(token, initialUsername)
         setSelectedDmUser(user)
         setActiveChat('dm')
-        // Keep 'all' if that's the default or let user switch, 
-        // but typically valid to switch to specific tab or stay on 'all'.
-        // Let's default to 'users' if deep linked? 
-        // Actually user request implies 3 tabs. Let's stick to 'all' as default or whatever user set.
-        // For deep link, maybe relevant tab.
-        // setLeftTab('users') // Don't override tab on load anymore, respect URL
         setMobileView('chat')
       } catch (err) {
         handleError(err instanceof Error ? err.message : 'Failed to load user')
@@ -150,7 +159,6 @@ function GroupChatContainer({
     }
 
     setActiveChat('group')
-    // setLeftTab('groups') // Don't override tab
     setMobileView('chat')
     setIsInfoOpen(true)
   }, [initialGroupId])
@@ -195,7 +203,7 @@ function GroupChatContainer({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeChat, clearSelection, navigate, selectedDmUser, selectedGroupId])
+  }, [activeChat, clearSelection, navigate, selectedDmUser, selectedGroupId, leftTab])
 
   useEffect(() => {
     if (!messageScrollRef.current) {
@@ -278,6 +286,7 @@ function GroupChatContainer({
       await updateMe(token, payload)
       await refresh()
       setIsProfileOpen(false)
+      setToast({ message: 'Profile updated successfully!', type: 'success' })
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : 'Failed to update profile')
     } finally {
@@ -297,12 +306,12 @@ function GroupChatContainer({
   const isInitialLoading = hasInitialSelection && !hasActiveChat
   const gridColumns = isInfoOpen
     ? 'lg:grid-cols-[280px_1fr_320px]'
-    : 'lg:grid-cols-[280px_1fr]'
+    : 'lg:grid-cols-[280px_1fr_0px]'
 
   return (
-    <div className="fixed inset-0 z-50 bg-white lg:static lg:h-screen lg:bg-gradient-to-br lg:from-[#bcd6ff] lg:via-[#b2ccff] lg:to-[#c7ddff] lg:px-4 lg:py-6">
+    <div className="fixed inset-0 z-50 bg-white lg:static lg:h-screen lg:bg-gradient-to-br lg:from-[#bcd6ff] lg:via-[#b2ccff] lg:to-[#c7ddff] lg:px-4 lg:py-6 overflow-x-hidden">
       <div
-        className={`mx-auto grid h-full lg:h-[92vh] max-w-[96rem] grid-cols-1 lg:gap-5 ${gridColumns}`}
+        className={`mx-auto grid h-full lg:h-[92vh] max-w-[96rem] grid-cols-1 lg:gap-5 transition-[grid-template-columns] duration-500 ease-in-out ${gridColumns}`}
       >
         <aside
           className={`${mobileView === 'list' ? 'flex' : 'hidden'
@@ -439,17 +448,17 @@ function GroupChatContainer({
                   ) : null}
                   {selectedGroup?.is_member ? (
                     <div className="min-h-0 flex-1">
-                      {messages.length === 0 ? (
+                      {activeMessages.length === 0 ? (
                         <div className="flex h-full items-center justify-center text-sm text-slate-600">
                           No messages yet.
                         </div>
                       ) : null}
-                      {messages.length > 0 ? (
+                      {activeMessages.length > 0 ? (
                         <div
                           className="min-h-0 h-full overflow-y-auto pr-2 scroll-auto"
                           ref={messageScrollRef}
                         >
-                          <MessageList messages={messages} me={me} />
+                          <MessageList messages={activeMessages} me={me} />
                         </div>
                       ) : null}
                     </div>
@@ -464,18 +473,18 @@ function GroupChatContainer({
                   ) : null}
                   {selectedDmUser ? (
                     <div className="min-h-0 flex-1">
-                      {directMessages.length === 0 ? (
+                      {activeMessages.length === 0 ? (
                         <div className="flex h-full items-center justify-center text-sm text-slate-600">
                           No messages yet.
                         </div>
                       ) : null}
-                      {directMessages.length > 0 ? (
+                      {activeMessages.length > 0 ? (
                         <div
                           className="min-h-0 h-full overflow-y-auto pr-2 scroll-auto"
                           ref={messageScrollRef}
                         >
                           <MessageList
-                            messages={directMessages}
+                            messages={activeMessages}
                             me={me}
                             showSenderLabel={false}
                           />
@@ -498,8 +507,10 @@ function GroupChatContainer({
         </main>
 
         <aside
-          className={`${mobileView === 'info' ? 'flex' : 'hidden'
-            } h-full lg:h-[92vh] flex-col gap-4 overflow-hidden lg:rounded-2xl lg:border lg:border-blue-200 bg-blue-50 lg:bg-blue-100/70 p-4 lg:p-5 lg:shadow-[0_12px_30px_rgba(30,41,59,0.1)] ${isInfoOpen ? 'lg:flex' : 'lg:hidden'
+          className={`${(mobileView === 'info' || (isInfoOpen && mobileView !== 'list')) ? 'flex' : 'hidden'
+            } h-full lg:h-[92vh] flex-col gap-4 overflow-hidden lg:rounded-2xl bg-blue-50 lg:bg-blue-100/70 p-4 lg:p-5 lg:shadow-[0_12px_30px_rgba(30,41,59,0.1)] lg:flex transition-all duration-500 ${isInfoOpen
+              ? 'lg:opacity-100 lg:border lg:border-blue-200'
+              : 'lg:opacity-0 lg:p-0 lg:border-0 lg:pointer-events-none'
             }`}
         >
           <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
@@ -605,7 +616,7 @@ function GroupChatContainer({
           groupName={joinTarget.name}
           isJoining={isJoining}
           onCancel={() => setJoinTarget(null)}
-          onConfirm={confirmJoin}
+          onConfirm={handleConfirmJoin}
         />
       ) : null}
       {bannedNotice && activeChat === 'group' ? (
@@ -630,8 +641,16 @@ function GroupChatContainer({
           </div>
         </div>
       ) : null}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }
 
 export default GroupChatContainer
+

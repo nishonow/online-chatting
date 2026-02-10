@@ -39,7 +39,7 @@ function Login() {
                 placeholder="you@email.com"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -49,7 +49,7 @@ function Login() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             {error ? <p className="text-xs text-red-600">{error}</p> : null}

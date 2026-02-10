@@ -121,7 +121,10 @@ function ProfileModal({
             <input
               type="text"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) => {
+                const val = event.target.value.replace(/[^a-zA-Z0-9_]/g, '')
+                setUsername(val)
+              }}
               className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
             />
           </div>

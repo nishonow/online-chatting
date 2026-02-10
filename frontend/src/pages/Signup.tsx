@@ -39,8 +39,11 @@ function Signup() {
                 type="text"
                 placeholder="yourname"
                 value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                onChange={(event) => {
+                  const val = event.target.value.replace(/[^a-zA-Z0-9_]/g, '')
+                  setUsername(val)
+                }}
+                className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -50,7 +53,7 @@ function Signup() {
                 placeholder="Your name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
-                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -60,7 +63,7 @@ function Signup() {
                 placeholder="you@email.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -70,7 +73,7 @@ function Signup() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="rounded-md border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="rounded-md border border-blue-200 px-3 py-2 text-base lg:text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             {error ? <p className="text-xs text-red-600">{error}</p> : null}
