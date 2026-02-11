@@ -62,7 +62,7 @@ function GroupChatContainer({
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isProfileSaving, setIsProfileSaving] = useState(false)
   const [bannedNotice, setBannedNotice] = useState('')
-  const [isInfoOpen, setIsInfoOpen] = useState(hasInitialSelection)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const { token, me, refresh } = useAuth()
@@ -160,7 +160,6 @@ function GroupChatContainer({
 
     setActiveChat('group')
     setMobileView('chat')
-    setIsInfoOpen(true)
   }, [initialGroupId])
 
   useEffect(() => {
@@ -175,7 +174,6 @@ function GroupChatContainer({
     }
 
     setMobileView('chat')
-    setIsInfoOpen(true)
   }, [hasInitialSelection, selectedDmUser, selectedGroupId])
 
   useEffect(() => {
@@ -507,7 +505,7 @@ function GroupChatContainer({
         </main>
 
         <aside
-          className={`${(mobileView === 'info' || (isInfoOpen && mobileView !== 'list')) ? 'flex' : 'hidden'
+          className={`${mobileView === 'info' ? 'flex' : 'hidden'
             } h-full lg:h-[92vh] flex-col gap-4 overflow-hidden lg:rounded-2xl bg-blue-50 lg:bg-blue-100/70 p-4 lg:p-5 lg:shadow-[0_12px_30px_rgba(30,41,59,0.1)] lg:flex transition-all duration-500 ${isInfoOpen
               ? 'lg:opacity-100 lg:border lg:border-blue-200'
               : 'lg:opacity-0 lg:p-0 lg:border-0 lg:pointer-events-none'
