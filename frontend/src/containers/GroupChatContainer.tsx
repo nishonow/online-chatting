@@ -160,6 +160,9 @@ function GroupChatContainer({
 
     setActiveChat('group')
     setMobileView('chat')
+    if (window.innerWidth >= 1024) {
+      setIsInfoOpen(true)
+    }
   }, [initialGroupId])
 
   useEffect(() => {
@@ -174,6 +177,9 @@ function GroupChatContainer({
     }
 
     setMobileView('chat')
+    if (window.innerWidth >= 1024) {
+      setIsInfoOpen(true)
+    }
   }, [hasInitialSelection, selectedDmUser, selectedGroupId])
 
   useEffect(() => {
